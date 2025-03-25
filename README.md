@@ -5,7 +5,7 @@ Data collected with a [IFTTT applet](https://ifttt.com/applets/nin7BxVm-keep-a-l
 This project explores listening habits by analyzing song titles, artists, and listening times.
 
 The project was created to practice:
-1. Data proccessing
+1. Data processing
    - loading raw data
    - transforming raw data into a usable format
    - adding new information based on existing data
