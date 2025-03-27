@@ -13,3 +13,10 @@ The project was created to practice:
    - using **Python** and **Jupyter Notebooks**
 3. Data visualization
    - using libraries like **Matplotlib** and **Seaborn**
+
+
+### Instructions
+
+Packages and their versions are specified in `requirments.txt`.
+
+Put `SHEET_ID` for Google Spreadsheet with logged songs in the `.env` file. Then run `main.py` to fetch and process data, that will be saved in `raw_data.csv` and `processed_data.csv` files in the path specified in `main.py`.
