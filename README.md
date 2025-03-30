@@ -17,6 +17,9 @@ The project was created to practice:
 
 ### Instructions
 
-Packages and their versions are specified in `requirments.txt`.
+Packages and their versions are specified in `requirments.txt`. Install with:
+```bash
+pip install -r requirements.txt
+```
 
 Put `SHEET_ID` for Google Spreadsheet with logged songs in the `.env` file. Then run `main.py` to fetch and process data, that will be saved in `raw_data.csv` and `processed_data.csv` files in the path specified in `main.py`.
