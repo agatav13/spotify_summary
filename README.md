@@ -5,6 +5,7 @@ Data collected with a [IFTTT applet](https://ifttt.com/applets/nin7BxVm-keep-a-l
 This project explores listening habits by analyzing song titles, artists, and listening times.
 
 The project was created to practice:
+
 1. Data processing
    - loading raw data
    - transforming raw data into a usable format
@@ -14,10 +15,10 @@ The project was created to practice:
 3. Data visualization
    - using libraries like **Matplotlib** and **Seaborn**
 
-
 ### Instructions
 
 Packages and their versions are specified in `requirments.txt`. Install with:
+
 ```bash
 pip install -r requirements.txt
 ```
