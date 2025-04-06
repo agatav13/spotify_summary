@@ -1,18 +1,24 @@
 from dotenv import load_dotenv
 import os
 import pandas as pd
+from progress.bar import Bar
 
 
 def fetch_data(data_path):
-    load_dotenv()  # Load .env
-    SHEET_ID = os.getenv("SHEET_ID")
+    with Bar("Fetching...", max=4, suffix="%(percent)d%% | Elapsed: %(elapsed)ds") as bar:
+        load_dotenv()  # Load .env
+        bar.next()
 
-    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+        SHEET_ID = os.getenv("SHEET_ID")
+        url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+        data = pd.read_csv(url)
+        bar.next()
 
-    data = pd.read_csv(url)
+        os.makedirs(data_path, exist_ok=True)
+        bar.next()
 
-    os.makedirs(data_path, exist_ok=True)
-    data.to_csv(f"{data_path}/raw_data.csv", index=False)  # Save to a CSV file
+        data.to_csv(f"{data_path}/raw_data.csv", index=False)  # Save to a CSV file
+        bar.next()
 
 
 if __name__ == "__main__":
