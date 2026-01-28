@@ -1,8 +1,8 @@
-"""Spotify Wrapped - Interactive Streamlit Dashboard."""
+"""Spotify Wrapped - Interactive Streamlit Dashboard with Altair."""
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from dashboard import visualizations
+from dashboard.themes import COLORS
 
 
 @st.cache_data
@@ -14,46 +14,78 @@ def load_data() -> pd.DataFrame:
     return df
 
 
+# Page config
 st.set_page_config(
     page_title="Spotify Wrapped",
     page_icon="🎵",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
+# Custom CSS
+st.markdown(
+    """
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #E91E63;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .metric-card {
+        background-color: #FFF0F5;
+        padding: 1rem;
+        border-radius: 10px;
+        border: 2px solid #F48FB1;
+    }
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #E91E63;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        border-bottom: 2px solid #F48FB1;
+        padding-bottom: 0.25rem;
+    }
+    .chart-container {
+        background-color: #FFFFFF;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #F0F0F0;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 # Load data
-with st.spinner("Loading data..."):
-    df = load_data()
+df = load_data()
 
-# Title and description
-st.title("🎵 Spotify Listening Analysis")
-st.markdown(f"**Total listens:** {len(df):,}")
-st.markdown(f"**Date range:** {df['date'].dt.date.min()} to {df['date'].dt.date.max()}")
+# Sidebar filters
+st.sidebar.header("🎛️ Time Period")
 
-# Sidebar controls
-st.sidebar.header("Controls")
-
-# Date range filter
-date_range = st.sidebar.radio(
-    "Time period",
-    ["All data", "This month", "This year", "Custom range"],
+# Time period selector
+period = st.sidebar.radio(
+    "Time Period",
+    ["All Data", "This Month", "This Year", "Custom Range"],
 )
 
-if date_range == "All data":
+if period == "All Data":
     df_filtered = df
-elif date_range == "This month":
+elif period == "This Month":
     today = pd.Timestamp.now()
     df_filtered = df[
         (df["date"].dt.month == today.month) & (df["date"].dt.year == today.year)
     ]
-elif date_range == "This year":
+elif period == "This Year":
     today = pd.Timestamp.now()
     df_filtered = df[df["date"].dt.year == today.year]
-else:  # Custom range
+else:  # Custom Range
     min_date = df["date"].dt.date.min()
     max_date = df["date"].dt.date.max()
     start_date, end_date = st.sidebar.date_input(
-        "Select date range",
+        "Select Date Range",
         value=(min_date, max_date),
         min_value=min_date,
         max_value=max_date,
@@ -62,66 +94,80 @@ else:  # Custom range
         (df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)
     ]
 
-# Show filtered data info
-if len(df_filtered) < len(df):
-    st.sidebar.markdown(f"**Filtered listens:** {len(df_filtered):,}")
-else:
-    st.sidebar.markdown(f"**Showing all:** {len(df_filtered):,} listens")
+# Show filtered info
+st.sidebar.markdown(f"**Showing:** {len(df_filtered):,} listens")
 
-# Top artists section
-st.header("Most Listened Artists")
+# Header
+st.markdown('<p class="main-header">🎵 Spotify Listening Dashboard</p>', unsafe_allow_html=True)
+
+# Key Metrics
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric(label="Total Listens", value=f"{len(df_filtered):,}")
+with col2:
+    st.metric(label="Unique Artists", value=f"{df_filtered['artist'].nunique():,}")
+with col3:
+    st.metric(label="Unique Songs", value=f"{df_filtered['song_id'].nunique():,}")
+with col4:
+    avg_per_day = len(df_filtered) / df_filtered["date"].dt.date.nunique()
+    st.metric(label="Avg per Day", value=f"{avg_per_day:.1f}")
+
+st.markdown("---")
+
+# ============================================================================
+# TOP ARTISTS SECTION
+# ============================================================================
+st.markdown('<p class="section-header">Top Artists</p>', unsafe_allow_html=True)
+
+col1, col2 = st.columns([4, 1])
+with col2:
+    st.info("📊")
+    top_n = st.slider("Number of Artists", min_value=3, max_value=15, value=6)
+
+with col1:
+    chart = visualizations.plot_top_artists_altair(df_filtered, num_artists=top_n)
+    st.altair_chart(chart, width="stretch")
+
+st.markdown("---")
+
+# ============================================================================
+# TIMELINE SECTION
+# ============================================================================
+st.markdown('<p class="section-header">Listening Timeline</p>', unsafe_allow_html=True)
+chart = visualizations.plot_timeline_altair(df_filtered)
+st.altair_chart(chart, width="stretch")
+
+st.markdown("---")
+
+# ============================================================================
+# DAY OF WEEK SECTION
+# ============================================================================
+st.markdown('<p class="section-header">Distribution by Day of Week</p>', unsafe_allow_html=True)
+chart = visualizations.plot_listens_by_day_altair(df_filtered)
+st.altair_chart(chart, width="stretch")
+
+st.markdown("---")
+
+# ============================================================================
+# TIME PATTERNS SECTION
+# ============================================================================
+st.markdown('<p class="section-header">Time Patterns</p>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("All Time")
-    fig1, ax1 = plt.subplots(figsize=(6, 6))
-    visualizations.plot_top_artists(df_filtered, num_artists=6, ax=ax1)
-    st.pyplot(fig1)
-    plt.close()
+    st.markdown("#### Time of Day")
+    chart = visualizations.plot_listens_by_time_altair(df_filtered)
+    st.altair_chart(chart, width="stretch")
 
 with col2:
-    st.subheader("This Month")
-    today = pd.Timestamp.now()
-    fig2, ax2 = plt.subplots(figsize=(6, 6))
-    visualizations.plot_top_artists(
-        df_filtered,
-        num_artists=6,
-        month=today.month,
-        year=today.year,
-        ax=ax2,
-    )
-    st.pyplot(fig2)
-    plt.close()
+    st.markdown("#### Weekly Patterns Heatmap")
+    chart = visualizations.plot_heatmap_altair(df_filtered)
+    st.altair_chart(chart, width="stretch")
 
-# Day of week analysis
-st.header("Listening Patterns by Day")
-
-with st.container():
-    fig3 = visualizations.plot_listens_by_day(df_filtered)
-    st.pyplot(fig3)
-    plt.close()
-
-# Time of day analysis
-st.header("Listening Patterns by Time of Day")
-
-col3, col4 = st.columns(2)
-
-with col3:
-    fig4 = visualizations.plot_listens_by_time(df_filtered)
-    st.pyplot(fig4)
-    plt.close()
-
-with col4:
-    st.subheader("Time of Day Heatmap")
-    fig5 = visualizations.plot_heatmap(df_filtered)
-    st.pyplot(fig5)
-    plt.close()
-
-# Timeline
-st.header("Listens Over Time")
-
-with st.container():
-    fig6 = visualizations.plot_listens_over_time(df_filtered)
-    st.pyplot(fig6)
-    plt.close()
+# Footer
+st.markdown("---")
+st.markdown(
+    f"<div style='text-align: center; color: {COLORS['secondary']};'>Made with 💖 and Streamlit</div>",
+    unsafe_allow_html=True,
+)
