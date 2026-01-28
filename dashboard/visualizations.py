@@ -2,15 +2,10 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
 import altair as alt
 from datetime import date
 from dashboard.themes import (
     COLORS,
-    PASTEL_PALETTE,
-    get_custom_layout,
-    get_color_sequence,
     PINK_SCHEME,
     PASTEL_SCHEME,
     DAY_COLORS,
@@ -199,240 +194,6 @@ def plot_heatmap(df: pd.DataFrame) -> plt.Figure:
 
     plt.tight_layout()
     return fig
-
-
-# ============================================================================
-# PLOTLY VISUALIZATIONS
-# ============================================================================
-
-
-def plot_top_artists_plotly(
-    df: pd.DataFrame,
-    num_artists: int = 6,
-    month: int | None = None,
-    year: int | None = None,
-) -> go.Figure:
-    """
-    Create an interactive pie chart of top listened artists using Plotly.
-
-    Args:
-        df: DataFrame with listening data
-        num_artists: Number of top artists to display
-        month: Filter by month (1-12), None for all time
-        year: Filter by year, None for all time
-
-    Returns:
-        Plotly figure with interactive pie chart
-    """
-    df_filtered = df.copy()
-
-    if month is not None and year is not None:
-        df_filtered = df_filtered[
-            (df_filtered["date"].dt.month == month)
-            & (df_filtered["date"].dt.year == year)
-        ]
-
-    # Group by artist and count
-    artist_counts = (
-        df_filtered[["artist", "title"]]
-        .groupby(by="artist")
-        .count()
-        .rename(columns={"title": "count"})
-        .sort_values(by="count", ascending=False)
-        .head(num_artists)
-        .reset_index()
-    )
-
-    fig = px.pie(
-        artist_counts,
-        values="count",
-        names="artist",
-        hole=0.3,
-        color_discrete_sequence=get_color_sequence(num_artists),
-        title=f"Top {num_artists} Artists",
-    )
-
-    fig.update_traces(
-        hovertemplate="<b>%{label}</b><br>Listens: %{value}<br>Percent: %{percent}<extra></extra>",
-        textposition="inside",
-        textinfo="percent+label",
-    )
-
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5),
-        **get_custom_layout(),
-    )
-
-    return fig
-
-
-def plot_listens_by_day_plotly(df: pd.DataFrame) -> go.Figure:
-    """Create an interactive bar chart of listens by day of week."""
-    day_labels = {
-        0: "Monday",
-        1: "Tuesday",
-        2: "Wednesday",
-        3: "Thursday",
-        4: "Friday",
-        5: "Saturday",
-        6: "Sunday",
-    }
-
-    days_of_week = df["day_of_week"].value_counts().sort_index().reset_index()
-    days_of_week.columns = ["day", "count"]
-    days_of_week["day"] = days_of_week["day"].map(day_labels)
-
-    fig = px.bar(
-        days_of_week,
-        x="day",
-        y="count",
-        title="Listens by Day of Week",
-        color="day",
-        color_discrete_sequence=px.colors.sequential.Pinkyl[::-1],
-        labels={"day": "Day of Week", "count": "Number of Listens"},
-    )
-
-    fig.update_traces(
-        hovertemplate="<b>%{x}</b><br>Listens: %{y}<extra></extra>",
-        marker=dict(line=dict(color="white", width=2)),
-    )
-
-    fig.update_layout(
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.05)"),
-        **get_custom_layout(),
-    )
-
-    return fig
-
-
-def plot_listens_by_time_plotly(df: pd.DataFrame) -> go.Figure:
-    """Create an interactive bar chart of listens by time of day."""
-    time_counts = df["time_of_day"].value_counts().reset_index()
-    time_counts.columns = ["time", "count"]
-
-    # Order times
-    time_order = ["Morning", "Afternoon", "Evening", "Night"]
-    time_counts["time"] = pd.Categorical(time_counts["time"], categories=time_order, ordered=True)
-    time_counts = time_counts.sort_values("time")
-
-    fig = px.bar(
-        time_counts,
-        x="time",
-        y="count",
-        title="Listens by Time of Day",
-        color="time",
-        color_discrete_map={
-            "Morning": COLORS["mint"],
-            "Afternoon": COLORS["peach"],
-            "Evening": COLORS["secondary"],
-            "Night": COLORS["purple"],
-        },
-        labels={"time": "Time of Day", "count": "Number of Listens"},
-    )
-
-    fig.update_traces(
-        hovertemplate="<b>%{x}</b><br>Listens: %{y}<extra></extra>",
-        marker=dict(line=dict(color="white", width=2)),
-    )
-
-    fig.update_layout(
-        showlegend=False,
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.05)"),
-        **get_custom_layout(),
-    )
-
-    return fig
-
-
-def plot_timeline_plotly(df: pd.DataFrame) -> go.Figure:
-    """Create an interactive line plot of listens over time."""
-    df_plot = df.copy()
-    df_plot["date"] = df_plot["date"].dt.date
-    listens_per_day = df_plot.groupby("date").size().reset_index()
-    listens_per_day.columns = ["date", "count"]
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Scatter(
-            x=listens_per_day["date"],
-            y=listens_per_day["count"],
-            mode="lines",
-            fill="tozeroy",
-            line=dict(color=COLORS["primary"], width=2),
-            hovertemplate="<b>%{x}</b><br>Listens: %{y}<extra></extra>",
-        )
-    )
-
-    fig.update_layout(
-        title="Listening Timeline",
-        xaxis_title="Date",
-        yaxis_title="Number of Listens",
-        hovermode="x unified",
-        xaxis=dict(
-            showgrid=False,
-            rangeslider_visible=True,
-            rangeselector=dict(
-                buttons=list(
-                    [
-                        dict(count=1, label="1M", step="month", stepmode="backward"),
-                        dict(count=3, label="3M", step="month", stepmode="backward"),
-                        dict(count=6, label="6M", step="month", stepmode="backward"),
-                        dict(step="all"),
-                    ]
-                )
-            ),
-        ),
-        yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.05)"),
-    )
-
-    return fig
-
-
-def plot_heatmap_plotly(df: pd.DataFrame) -> go.Figure:
-    """Create an interactive heatmap of listens by hour and day of week."""
-    day_labels = {
-        0: "Monday",
-        1: "Tuesday",
-        2: "Wednesday",
-        3: "Thursday",
-        4: "Friday",
-        5: "Saturday",
-        6: "Sunday",
-    }
-
-    df_plot = df.copy()
-    df_plot["hour"] = df_plot["date"].dt.hour
-    df_plot["day_of_week"] = df_plot["day_of_week"].map(day_labels)
-
-    pivot = (
-        df_plot.groupby(["hour", "day_of_week"])
-        .size()
-        .unstack(fill_value=0)
-        .reindex(columns=list(day_labels.values()))
-    )
-
-    fig = go.Figure(data=go.Heatmap(
-        z=pivot.values,
-        x=pivot.columns,
-        y=pivot.index,
-        colorscale="Pinkyl",
-        hovertemplate="<b>%{x}</b>, %{y}:00<br>Listens: %{z}<extra></extra>",
-    ))
-
-    fig.update_layout(
-        title="Listening Patterns: Day of Week vs Hour",
-        xaxis_title="Day of Week",
-        yaxis_title="Hour",
-        **get_custom_layout(),
-    )
-
-    return fig
-
-
 # ============================================================================
 # ALTAIR VISUALIZATIONS
 # ============================================================================
@@ -475,6 +236,10 @@ def plot_top_artists_altair(
         .reset_index()
     )
 
+    # Calculate percentage of total for these top artists (as decimal for Altair formatting)
+    total_count = artist_counts["count"].sum()
+    artist_counts["percent"] = (artist_counts["count"] / total_count).round(3)
+
     chart = (
         alt.Chart(artist_counts)
         .mark_arc(
@@ -493,7 +258,7 @@ def plot_top_artists_altair(
             tooltip=[
                 alt.Tooltip("artist:N", title="Artist"),
                 alt.Tooltip("count:Q", title="Listens", format=","),
-                alt.Tooltip("count:Q", title="Percent", format=".1%"),
+                alt.Tooltip("percent:Q", title="Percent of Top", format=".1%"),
             ],
         )
         .properties(

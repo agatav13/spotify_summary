@@ -27,11 +27,16 @@ st.markdown(
     """
 <style>
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
+        font-size: 4rem;
+        font-weight: 800;
         color: #E91E63;
         text-align: center;
         margin-bottom: 1rem;
+        letter-spacing: -0.03em;
+    }
+    h1 {
+        font-size: 4rem !important;
+        font-weight: 800 !important;
     }
     .metric-card {
         background-color: #FFF0F5;
@@ -54,6 +59,12 @@ st.markdown(
         border-radius: 8px;
         border: 1px solid #F0F0F0;
     }
+    /* Reduce padding at top and bottom of page */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+        padding-right: 15% !important;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -62,8 +73,12 @@ st.markdown(
 # Load data
 df = load_data()
 
+# Initialize session state for top_n
+if "top_n" not in st.session_state:
+    st.session_state.top_n = 6
+
 # Sidebar filters
-st.sidebar.header("🎛️ Time Period")
+st.sidebar.header("Time Period")
 
 # Time period selector
 period = st.sidebar.radio(
@@ -98,7 +113,7 @@ else:  # Custom Range
 st.sidebar.markdown(f"**Showing:** {len(df_filtered):,} listens")
 
 # Header
-st.markdown('<p class="main-header">🎵 Spotify Listening Dashboard</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">Spotify Listening Dashboard</h1>', unsafe_allow_html=True)
 
 # Key Metrics
 col1, col2, col3, col4 = st.columns(4)
@@ -119,14 +134,14 @@ st.markdown("---")
 # ============================================================================
 st.markdown('<p class="section-header">Top Artists</p>', unsafe_allow_html=True)
 
-col1, col2 = st.columns([4, 1])
-with col2:
-    st.info("📊")
-    top_n = st.slider("Number of Artists", min_value=3, max_value=15, value=6)
-
+# Slider above chart, left-aligned
+col1, col2 = st.columns([1, 4])
 with col1:
-    chart = visualizations.plot_top_artists_altair(df_filtered, num_artists=top_n)
-    st.altair_chart(chart, width="stretch")
+    top_n = st.slider("n", min_value=3, max_value=15, value=st.session_state.top_n, label_visibility="collapsed")
+    st.session_state.top_n = top_n
+
+chart = visualizations.plot_top_artists_altair(df_filtered, num_artists=top_n)
+st.altair_chart(chart, width="stretch")
 
 st.markdown("---")
 
