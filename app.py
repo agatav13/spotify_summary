@@ -65,6 +65,10 @@ st.markdown(
         padding-bottom: 2rem !important;
         padding-right: 15% !important;
     }
+    /* Hide sidebar collapse button */
+    [data-testid="stSidebarCollapseButton"] {
+        display: none;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -72,10 +76,6 @@ st.markdown(
 
 # Load data
 df = load_data()
-
-# Initialize session state for top_n
-if "top_n" not in st.session_state:
-    st.session_state.top_n = 6
 
 # Sidebar filters
 st.sidebar.header("Time Period")
@@ -137,8 +137,7 @@ st.markdown('<p class="section-header">Top Artists</p>', unsafe_allow_html=True)
 # Slider above chart, left-aligned
 col1, col2 = st.columns([1, 4])
 with col1:
-    top_n = st.slider("n", min_value=3, max_value=15, value=st.session_state.top_n, label_visibility="collapsed")
-    st.session_state.top_n = top_n
+    top_n = st.slider("n", min_value=3, max_value=15, value=6, key="top_n", label_visibility="collapsed")
 
 chart = visualizations.plot_top_artists_altair(df_filtered, num_artists=top_n)
 st.altair_chart(chart, width="stretch")
