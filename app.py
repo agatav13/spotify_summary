@@ -1,17 +1,28 @@
 """Spotify Wrapped - Interactive Streamlit Dashboard with Altair."""
 import streamlit as st
 import pandas as pd
+import os
+from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime, timedelta
 from dashboard import visualizations
 from dashboard.themes import COLORS
 
+# Load .env for local development (ignored on Streamlit Cloud)
+load_dotenv()
+
 
 def fetch_and_process_data(data_path: Path) -> None:
     """Fetch data from Google Sheets and process it."""
-    sheet_ids = st.secrets.get("SHEET_IDS")
+    # Try st.secrets first (Streamlit Cloud), fallback to .env (local)
+    sheet_ids = None
+    try:
+        sheet_ids = st.secrets.get("SHEET_IDS")
+    except Exception:
+        sheet_ids = os.getenv("SHEET_IDS")
+
     if not sheet_ids:
-        st.error("SHEET_IDS not found in Streamlit secrets. Please add it in app settings.")
+        st.error("SHEET_IDS not found. Add it to .env (local) or Streamlit secrets (cloud).")
         st.stop()
 
     sheet_ids = sheet_ids.split(",")
@@ -24,7 +35,7 @@ def fetch_and_process_data(data_path: Path) -> None:
         all_data.append(data)
 
     combined_data = pd.concat(all_data, ignore_index=True)
-    combined_data.to_csv(data_path / "raw_data.csv", index=False)
+    combined_data.to_csv(data_path / "raw_data.csv", index=False, header=False)
 
     # Process data
     raw_data = pd.read_csv(data_path / "raw_data.csv", header=None)
@@ -144,9 +155,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Sidebar
-st.sidebar.header("🎛️ Controls")
-
 # Refresh button
 if st.sidebar.button("🔄 Refresh Data"):
     st.sidebar.info("Fetching fresh data from Google Sheets...")
@@ -158,7 +166,7 @@ if data_path.exists():
     from datetime import datetime
     file_age = datetime.now() - datetime.fromtimestamp(data_path.stat().st_mtime)
     hours_ago = int(file_age.total_seconds() / 3600)
-    st.sidebar.caption(f"📊 Data updated {hours_ago}h ago")
+    st.sidebar.caption(f"Data updated {hours_ago}h ago")
 
 st.sidebar.markdown("---")
 
