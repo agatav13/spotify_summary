@@ -1,15 +1,85 @@
 """Spotify Wrapped - Interactive Streamlit Dashboard with Altair."""
 import streamlit as st
 import pandas as pd
+from pathlib import Path
+from datetime import datetime, timedelta
 from dashboard import visualizations
 from dashboard.themes import COLORS
 
 
+def fetch_and_process_data(data_path: Path) -> None:
+    """Fetch data from Google Sheets and process it."""
+    sheet_ids = st.secrets.get("SHEET_IDS")
+    if not sheet_ids:
+        st.error("SHEET_IDS not found in Streamlit secrets. Please add it in app settings.")
+        st.stop()
+
+    sheet_ids = sheet_ids.split(",")
+
+    # Fetch raw data
+    all_data = []
+    for sheet_id in sheet_ids:
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+        data = pd.read_csv(url, header=None)
+        all_data.append(data)
+
+    combined_data = pd.concat(all_data, ignore_index=True)
+    combined_data.to_csv(data_path / "raw_data.csv", index=False)
+
+    # Process data
+    raw_data = pd.read_csv(data_path / "raw_data.csv", header=None)
+    raw_data.columns = ["date", "title", "artist", "song_id", "link"]
+
+    # Parse dates
+    raw_data["date"] = raw_data["date"].apply(
+        lambda x: datetime.strptime(x, "%B %d, %Y at %I:%M%p").strftime("%Y-%m-%d %H:%M")
+    )
+    raw_data["date"] = pd.to_datetime(raw_data["date"])
+
+    # Add derived columns
+    raw_data["day_of_week"] = raw_data["date"].dt.day_of_week
+
+    def get_time_of_day(hour):
+        if 6 <= hour <= 11:
+            return "Morning"
+        elif 12 <= hour <= 17:
+            return "Afternoon"
+        elif 18 <= hour <= 22:
+            return "Evening"
+        else:
+            return "Night"
+
+    raw_data["time_of_day"] = raw_data["date"].dt.hour.apply(get_time_of_day)
+
+    raw_data.to_csv(data_path / "processed_data.csv", index=False)
+
+
 @st.cache_data
-def load_data() -> pd.DataFrame:
+def load_data(force_refresh: bool = False) -> pd.DataFrame:
     """Load and cache the processed Spotify data."""
-    data_path = "data/processed_data.csv"
-    df = pd.read_csv(data_path)
+    data_path = Path(__file__).parent / "data"
+    processed_file = data_path / "processed_data.csv"
+
+    # Create data directory if it doesn't exist
+    data_path.mkdir(exist_ok=True)
+
+    # Check if file exists and its age
+    should_fetch = force_refresh
+
+    if not processed_file.exists():
+        should_fetch = True
+    else:
+        # Auto-refresh if file is older than 24 hours
+        file_age = datetime.now() - datetime.fromtimestamp(processed_file.stat().st_mtime)
+        if file_age > timedelta(hours=24):
+            should_fetch = True
+
+    if should_fetch:
+        with st.spinner("Fetching and processing data from Google Sheets..."):
+            fetch_and_process_data(data_path)
+            st.rerun()
+
+    df = pd.read_csv(processed_file)
     df["date"] = pd.to_datetime(df["date"])
     return df
 
@@ -74,10 +144,25 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Load data
-df = load_data()
+# Sidebar
+st.sidebar.header("🎛️ Controls")
 
-# Sidebar filters
+# Refresh button
+if st.sidebar.button("🔄 Refresh Data"):
+    st.sidebar.info("Fetching fresh data from Google Sheets...")
+    df = load_data(force_refresh=True)
+
+# Data info
+data_path = Path(__file__).parent / "data" / "processed_data.csv"
+if data_path.exists():
+    from datetime import datetime
+    file_age = datetime.now() - datetime.fromtimestamp(data_path.stat().st_mtime)
+    hours_ago = int(file_age.total_seconds() / 3600)
+    st.sidebar.caption(f"📊 Data updated {hours_ago}h ago")
+
+st.sidebar.markdown("---")
+
+# Time Period
 st.sidebar.header("Time Period")
 
 # Time period selector
@@ -85,6 +170,9 @@ period = st.sidebar.radio(
     "Time Period",
     ["All Data", "This Month", "This Year", "Custom Range"],
 )
+
+# Load data
+df = load_data()
 
 if period == "All Data":
     df_filtered = df
