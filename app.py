@@ -279,7 +279,7 @@ st.sidebar.markdown(f"**Showing:** {len(df_filtered):,} listens")
 
 # Header
 st.markdown('<h1 class="main-header">Spotify Listening Dashboard</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Your music in detail</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Listening insights</p>', unsafe_allow_html=True)
 
 # Key Metrics
 col1, col2, col3, col4 = st.columns(4, gap="small")

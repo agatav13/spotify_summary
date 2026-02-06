@@ -264,7 +264,6 @@ def plot_top_artists_altair(
         .properties(
             width=400,
             height=400,
-            title=f"Top {num_artists} Artists",
         )
         .configure_view(strokeWidth=0)
     )
@@ -321,7 +320,7 @@ def plot_listens_by_day_altair(df: pd.DataFrame) -> alt.Chart:
                 alt.Tooltip("count:Q", title="Listens", format=","),
             ],
         )
-        .properties(width="container", height=400, title="Listens by Day of Week")
+        .properties(width="container", height=400)
     )
 
     return chart
@@ -361,7 +360,7 @@ def plot_listens_by_time_altair(df: pd.DataFrame) -> alt.Chart:
                 alt.Tooltip("count:Q", title="Listens", format=","),
             ],
         )
-        .properties(width="container", height=400, title="Listens by Time of Day")
+        .properties(width="container", height=400)
     )
 
     return chart
@@ -402,7 +401,7 @@ def plot_timeline_altair(df: pd.DataFrame) -> alt.Chart:
 
     chart = (
         (area + line + points)
-        .properties(width="container", height=400, title="Listening Timeline")
+        .properties(width="container", height=400)
         .configure_view(strokeWidth=0)
     )
 
@@ -466,7 +465,7 @@ def plot_heatmap_altair(df: pd.DataFrame) -> alt.Chart:
                 alt.Tooltip("count:Q", title="Listens", format=","),
             ],
         )
-        .properties(width="container", height=450, title="Listening Patterns Heatmap")
+        .properties(width="container", height=450)
     )
 
     return chart
