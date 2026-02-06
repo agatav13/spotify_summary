@@ -1,4 +1,5 @@
 """Spotify Wrapped - Interactive Streamlit Dashboard with Altair."""
+import re
 import streamlit as st
 import pandas as pd
 import os
@@ -6,14 +7,64 @@ from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime, timedelta
 from dashboard import visualizations
+from dashboard.tabs import (
+    render_overview_tab,
+    render_songs_tab,
+    render_artists_tab,
+    render_patterns_tab,
+)
 from dashboard.themes import COLORS
+from dashboard.utils import get_time_of_day
+
+
+def _load_css() -> None:
+    """Load custom CSS from file."""
+    css_path = Path(__file__).parent / "dashboard" / "static" / "style.css"
+    try:
+        with open(css_path, encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning("CSS file not found. Using default styling.")
+
+# Constants
+CACHE_REFRESH_HOURS: int = 24
+SHEET_ID_PATTERN: re.Pattern = re.compile(r"^[a-zA-Z0-9-_]{10,50}$")
+
+# Configure page first (before any other st calls)
+st.set_page_config(
+    page_title="Spotify Wrapped",
+    page_icon="🎵",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 # Load .env for local development (ignored on Streamlit Cloud)
 load_dotenv()
 
 
-def fetch_and_process_data(data_path: Path) -> None:
-    """Fetch data from Google Sheets and process it."""
+def _validate_sheet_id(sheet_id: str) -> bool:
+    """
+    Validate Google Sheet ID format to prevent injection attacks.
+
+    Args:
+        sheet_id: The sheet ID to validate
+
+    Returns:
+        True if valid, False otherwise
+    """
+    return bool(SHEET_ID_PATTERN.match(sheet_id.strip()))
+
+
+def fetch_and_process_data(data_path: Path) -> bool:
+    """
+    Fetch data from Google Sheets and process it.
+
+    Args:
+        data_path: Path to the data directory
+
+    Returns:
+        True if successful, False otherwise
+    """
     # Try st.secrets first (Streamlit Cloud), fallback to .env (local)
     sheet_ids = None
     try:
@@ -23,51 +74,84 @@ def fetch_and_process_data(data_path: Path) -> None:
 
     if not sheet_ids:
         st.error("SHEET_IDS not found. Add it to .env (local) or Streamlit secrets (cloud).")
-        st.stop()
+        return False
 
     sheet_ids = sheet_ids.split(",")
 
-    # Fetch raw data
+    # Validate sheet IDs
+    for sheet_id in sheet_ids:
+        if not _validate_sheet_id(sheet_id):
+            st.error(f"Invalid sheet ID format: {sheet_id}")
+            return False
+
+    # Fetch raw data with error handling
     all_data = []
     for sheet_id in sheet_ids:
-        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-        data = pd.read_csv(url, header=None)
-        all_data.append(data)
+        try:
+            url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+            data = pd.read_csv(url, header=None)
+            all_data.append(data)
+        except Exception as e:
+            st.error(f"Failed to fetch data from sheet {sheet_id}: {e}")
+            return False
 
-    combined_data = pd.concat(all_data, ignore_index=True)
-    combined_data.to_csv(data_path / "raw_data.csv", index=False, header=False)
+    if not all_data:
+        st.error("No data was fetched from Google Sheets.")
+        return False
 
-    # Process data
-    raw_data = pd.read_csv(data_path / "raw_data.csv", header=None)
-    raw_data.columns = ["date", "title", "artist", "song_id", "link"]
+    try:
+        combined_data = pd.concat(all_data, ignore_index=True)
+        combined_data.to_csv(data_path / "raw_data.csv", index=False, header=False)
+    except Exception as e:
+        st.error(f"Failed to save raw data: {e}")
+        return False
 
-    # Parse dates
-    raw_data["date"] = raw_data["date"].apply(
-        lambda x: datetime.strptime(x, "%B %d, %Y at %I:%M%p").strftime("%Y-%m-%d %H:%M")
-    )
-    raw_data["date"] = pd.to_datetime(raw_data["date"])
+    # Process data with error handling
+    try:
+        raw_data = pd.read_csv(data_path / "raw_data.csv", header=None)
+        raw_data.columns = ["date", "title", "artist", "song_id"]
 
-    # Add derived columns
-    raw_data["day_of_week"] = raw_data["date"].dt.day_of_week
+        # Validate required columns exist
+        required_cols = ["date", "title", "artist", "song_id"]
+        if not all(col in raw_data.columns for col in required_cols):
+            st.error("Data is missing required columns.")
+            return False
 
-    def get_time_of_day(hour):
-        if 6 <= hour <= 11:
-            return "Morning"
-        elif 12 <= hour <= 17:
-            return "Afternoon"
-        elif 18 <= hour <= 22:
-            return "Evening"
-        else:
-            return "Night"
+        # Parse dates with error handling
+        def parse_date(date_str):
+            try:
+                return datetime.strptime(date_str, "%B %d, %Y at %I:%M%p").strftime("%Y-%m-%d %H:%M")
+            except ValueError:
+                return None
 
-    raw_data["time_of_day"] = raw_data["date"].dt.hour.apply(get_time_of_day)
+        raw_data["date"] = raw_data["date"].apply(parse_date)
+        # Remove rows with invalid dates
+        raw_data = raw_data[raw_data["date"].notna()]
+        raw_data["date"] = pd.to_datetime(raw_data["date"])
 
-    raw_data.to_csv(data_path / "processed_data.csv", index=False)
+        # Add derived columns
+        raw_data["day_of_week"] = raw_data["date"].dt.day_of_week
+        raw_data["time_of_day"] = raw_data["date"].dt.hour.apply(get_time_of_day)
+
+        raw_data.to_csv(data_path / "processed_data.csv", index=False)
+        return True
+
+    except Exception as e:
+        st.error(f"Failed to process data: {e}")
+        return False
 
 
 @st.cache_data
-def load_data(force_refresh: bool = False) -> pd.DataFrame:
-    """Load and cache the processed Spotify data."""
+def load_data(force_refresh: bool = False) -> pd.DataFrame | None:
+    """
+    Load and cache the processed Spotify data.
+
+    Args:
+        force_refresh: Force re-fetching data from Google Sheets
+
+    Returns:
+        DataFrame with listening data, or None if loading failed
+    """
     data_path = Path(__file__).parent / "data"
     processed_file = data_path / "processed_data.csv"
 
@@ -80,159 +164,90 @@ def load_data(force_refresh: bool = False) -> pd.DataFrame:
     if not processed_file.exists():
         should_fetch = True
     else:
-        # Auto-refresh if file is older than 24 hours
+        # Auto-refresh if file is older than configured hours
         file_age = datetime.now() - datetime.fromtimestamp(processed_file.stat().st_mtime)
-        if file_age > timedelta(hours=24):
+        if file_age > timedelta(hours=CACHE_REFRESH_HOURS):
             should_fetch = True
 
     if should_fetch:
-        with st.spinner("Fetching and processing data from Google Sheets..."):
-            fetch_and_process_data(data_path)
-            st.rerun()
+        success = fetch_and_process_data(data_path)
+        if not success:
+            # If we have cached data, return it even if refresh failed
+            if processed_file.exists():
+                st.warning("Using cached data due to fetch failure.")
+            else:
+                st.error("No data available. Please check your configuration.")
+                return None
 
-    df = pd.read_csv(processed_file)
-    df["date"] = pd.to_datetime(df["date"])
-    return df
+    try:
+        df = pd.read_csv(processed_file)
+        df["date"] = pd.to_datetime(df["date"])
+        return df
+    except Exception as e:
+        st.error(f"Failed to load data: {e}")
+        return None
 
 
-# Page config
-st.set_page_config(
-    page_title="Spotify Wrapped",
-    page_icon="🎵",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+def render_metrics(df: pd.DataFrame) -> None:
+    """Render key metrics cards."""
+    col1, col2, col3, col4 = st.columns(4, gap="small")
 
-# Custom CSS - Sage Rose Design
-st.markdown(
-    """
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+Pro:wght@300;400;600&display=swap');
+    with col1:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{len(df):,}</div>
+                <div class="metric-label">Total Listens</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    * {
-        font-family: 'Source Sans Pro', -apple-system, sans-serif;
-    }
+    with col2:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{df['artist'].nunique():,}</div>
+                <div class="metric-label">Artists</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    .main {
-        background-color: #f7f6f3;
-    }
+    with col3:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{df['song_id'].nunique():,}</div>
+                <div class="metric-label">Songs</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    .main-header {
-        font-family: 'Playfair Display', serif;
-        font-size: 3rem;
-        font-weight: 600;
-        color: #2d3436;
-        text-align: center;
-        margin-bottom: 0.25rem;
-        letter-spacing: -0.01em;
-    }
+    with col4:
+        avg_per_day = len(df) / df["date"].dt.date.nunique()
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{avg_per_day:.1f}</div>
+                <div class="metric-label">Per Day</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    .subtitle {
-        font-family: 'Source Sans Pro', sans-serif;
-        text-align: center;
-        color: #b76e79;
-        font-size: 0.9rem;
-        font-weight: 400;
-        margin-bottom: 2rem;
-        letter-spacing: 0.05em;
-    }
 
-    h1 {
-        font-family: 'Playfair Display', serif !important;
-        font-size: 3rem !important;
-        font-weight: 600 !important;
-        color: #2d3436 !important;
-    }
+# Load custom CSS
+_load_css()
 
-    .metric-card {
-        background: white;
-        border-radius: 10px;
-        padding: 1.5rem;
-        text-align: center;
-        box-shadow: 0 2px 8px rgba(183, 110, 121, 0.06);
-        border: 1px solid #e8e6e1;
-        transition: all 0.2s ease;
-    }
+# ============================================================================
+# SIDEBAR
+# ============================================================================
 
-    .metric-card:hover {
-        box-shadow: 0 4px 16px rgba(183, 110, 121, 0.12);
-    }
-
-    .metric-value {
-        font-family: 'Playfair Display', serif;
-        font-size: 2.25rem;
-        font-weight: 600;
-        color: #b76e79;
-        letter-spacing: -0.02em;
-    }
-
-    .metric-label {
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: #636e72;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        margin-top: 0.5rem;
-    }
-
-    .section-header {
-        font-family: 'Playfair Display', serif;
-        font-size: 1.35rem;
-        font-weight: 500;
-        color: #2d3436;
-        margin-top: 1.75rem;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #b76e79;
-        display: inline-block;
-    }
-
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 8% !important;
-        padding-right: 8% !important;
-        max-width: 1400px !important;
-    }
-
-    hr {
-        border: none;
-        border-top: 1px solid #e0ddd5;
-        margin: 2rem 0;
-    }
-
-    [data-testid="stSidebar"] {
-        background: white !important;
-        border-right: 1px solid #e8e6e1;
-    }
-
-    [data-testid="stSidebar"] > div:first-child {
-        background: transparent;
-    }
-
-    h3 {
-        color: #2d3436 !important;
-        font-family: 'Playfair Display', serif !important;
-        font-weight: 500 !important;
-    }
-
-    [data-testid="stSidebarCollapseButton"] {
-        display: none;
-    }
-</style>
-""",
-    unsafe_allow_html=True,
-)
+# Initialize session state for refresh tracking
+if "data_refreshed" not in st.session_state:
+    st.session_state.data_refreshed = False
 
 # Refresh button
 if st.sidebar.button("🔄 Refresh Data"):
-    st.sidebar.info("Fetching fresh data from Google Sheets...")
-    df = load_data(force_refresh=True)
+    with st.sidebar:
+        with st.spinner("Fetching fresh data from Google Sheets..."):
+            load_data(force_refresh=True)
+        st.success("Data refreshed successfully!")
+        st.session_state.data_refreshed = True
 
 # Data info
 data_path = Path(__file__).parent / "data" / "processed_data.csv"
 if data_path.exists():
-    from datetime import datetime
     file_age = datetime.now() - datetime.fromtimestamp(data_path.stat().st_mtime)
     hours_ago = int(file_age.total_seconds() / 3600)
     st.sidebar.caption(f"Data updated {hours_ago}h ago")
@@ -250,6 +265,10 @@ period = st.sidebar.radio(
 
 # Load data
 df = load_data()
+
+if df is None:
+    st.error("Failed to load data. Please check your configuration and try again.")
+    st.stop()
 
 if period == "All Data":
     df_filtered = df
@@ -277,99 +296,41 @@ else:  # Custom Range
 # Show filtered info
 st.sidebar.markdown(f"**Showing:** {len(df_filtered):,} listens")
 
+st.sidebar.markdown("---")
+
+# ============================================================================
+# SIDEBAR NAVIGATION
+# ============================================================================
+# Navigation moved to main content as horizontal buttons
+
+# ============================================================================
+# MAIN CONTENT
+# ============================================================================
+
 # Header
 st.markdown('<h1 class="main-header">Spotify Listening Dashboard</h1>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">Listening insights</p>', unsafe_allow_html=True)
 
 # Key Metrics
-col1, col2, col3, col4 = st.columns(4, gap="small")
+render_metrics(df_filtered)
 
-with col1:
-    st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-value">{len(df_filtered):,}</div>
-            <div class="metric-label">Total Listens</div>
-        </div>
-    """, unsafe_allow_html=True)
+# Tab Navigation (built-in tabs for smoother switching)
+tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Artists", "Songs", "Patterns"])
 
-with col2:
-    st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-value">{df_filtered['artist'].nunique():,}</div>
-            <div class="metric-label">Artists</div>
-        </div>
-    """, unsafe_allow_html=True)
+with tab1:
+    render_overview_tab(df_filtered)
 
-with col3:
-    st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-value">{df_filtered['song_id'].nunique():,}</div>
-            <div class="metric-label">Songs</div>
-        </div>
-    """, unsafe_allow_html=True)
+with tab2:
+    with st.spinner("Loading artists..."):
+        render_artists_tab(df_filtered)
 
-with col4:
-    avg_per_day = len(df_filtered) / df_filtered["date"].dt.date.nunique()
-    st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-value">{avg_per_day:.1f}</div>
-            <div class="metric-label">Per Day</div>
-        </div>
-    """, unsafe_allow_html=True)
+with tab3:
+    with st.spinner("Loading songs..."):
+        render_songs_tab(df_filtered)
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-st.markdown("---")
-
-# ============================================================================
-# TOP ARTISTS SECTION
-# ============================================================================
-st.markdown('<p class="section-header">Top Artists</p>', unsafe_allow_html=True)
-
-# Slider above chart, left-aligned
-col1, col2 = st.columns([1, 4])
-with col1:
-    top_n = st.slider("n", min_value=3, max_value=15, value=6, key="top_n", label_visibility="collapsed")
-
-chart = visualizations.plot_top_artists_altair(df_filtered, num_artists=top_n)
-st.altair_chart(chart, width="stretch")
-
-st.markdown("---")
-
-# ============================================================================
-# TIMELINE SECTION
-# ============================================================================
-st.markdown('<p class="section-header">Listening Timeline</p>', unsafe_allow_html=True)
-chart = visualizations.plot_timeline_altair(df_filtered)
-st.altair_chart(chart, width="stretch")
-
-st.markdown("---")
-
-# ============================================================================
-# DAY OF WEEK SECTION
-# ============================================================================
-st.markdown('<p class="section-header">Distribution by Day of Week</p>', unsafe_allow_html=True)
-chart = visualizations.plot_listens_by_day_altair(df_filtered)
-st.altair_chart(chart, width="stretch")
-
-st.markdown("---")
-
-# ============================================================================
-# TIME PATTERNS SECTION
-# ============================================================================
-st.markdown('<p class="section-header">Time Patterns</p>', unsafe_allow_html=True)
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown("#### Time of Day")
-    chart = visualizations.plot_listens_by_time_altair(df_filtered)
-    st.altair_chart(chart, width="stretch")
-
-with col2:
-    st.markdown("#### Weekly Patterns Heatmap")
-    chart = visualizations.plot_heatmap_altair(df_filtered)
-    st.altair_chart(chart, width="stretch")
+with tab4:
+    with st.spinner("Loading patterns..."):
+        render_patterns_tab(df_filtered)
 
 # Footer
 st.markdown("---")

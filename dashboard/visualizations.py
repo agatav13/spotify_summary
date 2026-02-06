@@ -1,274 +1,14 @@
 """Visualization functions for Spotify listening data."""
+import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import altair as alt
 from datetime import date
 from dashboard.themes import (
     COLORS,
     PINK_SCHEME,
-    PASTEL_SCHEME,
     DAY_COLORS,
     TIME_COLORS,
 )
-
-
-def plot_top_artists(
-    df: pd.DataFrame,
-    num_artists: int = 6,
-    month: int | None = None,
-    year: int | None = None,
-    ax: plt.Axes | None = None,
-) -> plt.Axes:
-    """
-    Create a pie chart of top listened artists.
-
-    Args:
-        df: DataFrame with listening data
-        num_artists: Number of top artists to display
-        month: Filter by month (1-12), None for all time
-        year: Filter by year, None for all time
-        ax: Matplotlib axis to plot on
-
-    Returns:
-        Matplotlib axis with the plot
-    """
-    df_filtered = df.copy()
-
-    if month is not None and year is not None:
-        df_filtered = df_filtered[
-            (df_filtered["date"].dt.month == month)
-            & (df_filtered["date"].dt.year == year)
-        ]
-
-    # Group by artist and count
-    artist_counts = (
-        df_filtered[["artist", "title"]]
-        .groupby(by="artist")
-        .count()
-        .rename(columns={"title": "count"})
-        .sort_values(by="count", ascending=False)
-        .head(num_artists)
-    )
-
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(6, 6))
-
-    ax.pie(
-        artist_counts["count"],
-        labels=artist_counts.index,
-        textprops={"fontsize": 10},
-        colors=sns.color_palette("Pastel1"),
-    )
-
-    date_range = f"{month:02}-{year}" if (month and year) else "all data"
-    ax.set_title(
-        f"Most listened artists ({date_range})",
-        fontdict={"fontsize": 14, "fontweight": "bold"},
-        pad=20,
-    )
-
-    return ax
-
-
-def plot_listens_by_day(df: pd.DataFrame) -> plt.Figure:
-    """Create a bar chart of listens by day of week."""
-    day_labels = {
-        0: "Monday",
-        1: "Tuesday",
-        2: "Wednesday",
-        3: "Thursday",
-        4: "Friday",
-        5: "Saturday",
-        6: "Sunday",
-    }
-
-    days_of_week = df["day_of_week"].value_counts().sort_index()
-    days_of_week.index = days_of_week.index.map(day_labels)
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(days_of_week.index, days_of_week, color=sns.color_palette("Pastel1"))
-
-    ax.set_title(
-        "Number of listens per day of week",
-        fontdict={"fontsize": 14, "fontweight": "bold"},
-        pad=20,
-    )
-    ax.tick_params(axis="x", rotation=45, labelsize=9)
-    ax.set_xlabel("Day of week", fontsize=10, labelpad=10)
-    ax.set_ylabel("Number of listens", fontsize=10, labelpad=10)
-    ax.grid(axis="y")
-
-    plt.tight_layout()
-    return fig
-
-
-def plot_listens_by_time(df: pd.DataFrame) -> plt.Figure:
-    """Create a bar chart of listens by time of day."""
-    time_of_day = df["time_of_day"].value_counts()
-
-    time_of_day.index = pd.Categorical(
-        time_of_day.index, ["Morning", "Afternoon", "Evening", "Night"]
-    )
-    time_of_day = time_of_day.sort_index()
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(time_of_day.index, time_of_day, color=sns.color_palette("Pastel1"))
-
-    ax.set_title(
-        "Number of listens by time of day",
-        fontdict={"fontsize": 14, "fontweight": "bold"},
-        pad=20,
-    )
-    ax.set_xlabel("Time of day", fontsize=10, labelpad=10)
-    ax.set_ylabel("Number of listens", fontsize=10, labelpad=10)
-    ax.grid(axis="y")
-
-    plt.tight_layout()
-    return fig
-
-
-def plot_listens_over_time(df: pd.DataFrame) -> plt.Figure:
-    """Create a line plot of listens per day."""
-    df_plot = df.copy()
-    df_plot["date"] = df_plot["date"].dt.date
-    listens_per_day = df_plot.groupby("date").count()["song_id"]
-
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.plot(listens_per_day, color="palevioletred")
-
-    ax.set_title(
-        "Number of listens per day",
-        fontdict={"fontsize": 14, "fontweight": "bold"},
-        pad=20,
-    )
-    ax.tick_params(axis="x", rotation=45, labelsize=9)
-    ax.set_xlabel("Date", fontsize=11, labelpad=10)
-    ax.set_ylabel("Number of listens", fontsize=11, labelpad=10)
-    ax.grid()
-
-    plt.tight_layout()
-    return fig
-
-
-def plot_heatmap(df: pd.DataFrame) -> plt.Figure:
-    """Create a heatmap of listens by hour and day of week."""
-    day_labels = {
-        0: "Monday",
-        1: "Tuesday",
-        2: "Wednesday",
-        3: "Thursday",
-        4: "Friday",
-        5: "Saturday",
-        6: "Sunday",
-    }
-
-    df_plot = df.copy()
-    df_plot["hour"] = df_plot["date"].dt.hour
-    df_plot["day_of_week"] = df_plot["day_of_week"].map(day_labels)
-
-    pivot = (
-        df_plot.groupby(["hour", "day_of_week"])
-        .size()
-        .unstack(fill_value=0)
-        .reindex(columns=list(day_labels.values()))
-    )
-
-    fig, ax = plt.subplots(figsize=(10, 8))
-    sns.heatmap(
-        pivot,
-        cmap=sns.cubehelix_palette(as_cmap=True),
-        linewidths=0.2,
-        linecolor="white",
-        ax=ax,
-    )
-
-    ax.set_title(
-        "Number of listens: Day of week vs Hour",
-        fontdict={"fontsize": 14, "fontweight": "bold"},
-        pad=20,
-    )
-    ax.tick_params(axis="y", rotation=0)
-    ax.set_xlabel("Day of week", fontsize=11, labelpad=10)
-    ax.set_ylabel("Hour", fontsize=11, labelpad=10)
-
-    plt.tight_layout()
-    return fig
-# ============================================================================
-# ALTAIR VISUALIZATIONS
-# ============================================================================
-
-
-def plot_top_artists_altair(
-    df: pd.DataFrame,
-    num_artists: int = 6,
-    month: int | None = None,
-    year: int | None = None,
-) -> alt.Chart:
-    """
-    Create a donut chart of top listened artists using Altair.
-
-    Args:
-        df: DataFrame with listening data
-        num_artists: Number of top artists to display
-        month: Filter by month (1-12), None for all time
-        year: Filter by year, None for all time
-
-    Returns:
-        Altair chart with interactive donut chart
-    """
-    df_filtered = df.copy()
-
-    if month is not None and year is not None:
-        df_filtered = df_filtered[
-            (df_filtered["date"].dt.month == month)
-            & (df_filtered["date"].dt.year == year)
-        ]
-
-    # Group by artist and count
-    artist_counts = (
-        df_filtered[["artist", "title"]]
-        .groupby(by="artist")
-        .count()
-        .rename(columns={"title": "count"})
-        .sort_values(by="count", ascending=False)
-        .head(num_artists)
-        .reset_index()
-    )
-
-    # Calculate percentage of total for these top artists (as decimal for Altair formatting)
-    total_count = artist_counts["count"].sum()
-    artist_counts["percent"] = (artist_counts["count"] / total_count).round(3)
-
-    chart = (
-        alt.Chart(artist_counts)
-        .mark_arc(
-            innerRadius=80,
-            cornerRadius=5,
-            stroke="#FFFFFF",
-            strokeWidth=2,
-        )
-        .encode(
-            theta=alt.Theta("count:Q", stack=True),
-            color=alt.Color(
-                "artist:N",
-                legend=alt.Legend(title="Artist", orient="right", labelLimit=150),
-                scale=alt.Scale(range=PASTEL_SCHEME),
-            ),
-            tooltip=[
-                alt.Tooltip("artist:N", title="Artist"),
-                alt.Tooltip("count:Q", title="Listens", format=","),
-                alt.Tooltip("percent:Q", title="Percent of Top", format=".1%"),
-            ],
-        )
-        .properties(
-            width=400,
-            height=400,
-        )
-        .configure_view(strokeWidth=0)
-    )
-
-    return chart
 
 
 def plot_listens_by_day_altair(df: pd.DataFrame) -> alt.Chart:
@@ -366,12 +106,20 @@ def plot_listens_by_time_altair(df: pd.DataFrame) -> alt.Chart:
     return chart
 
 
-def plot_timeline_altair(df: pd.DataFrame) -> alt.Chart:
-    """Create a line plot of listens over time using Altair."""
+@st.cache_data
+def _prepare_timeline_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Prepare and cache timeline data."""
     df_plot = df.copy()
     df_plot["date"] = df_plot["date"].dt.date
     listens_per_day = df_plot.groupby("date").size().reset_index()
     listens_per_day.columns = ["date", "count"]
+    return listens_per_day
+
+
+def plot_timeline_altair(df: pd.DataFrame) -> alt.Chart:
+    """Create a line plot of listens over time using Altair."""
+    # Use cached data preparation
+    listens_per_day = _prepare_timeline_data(df)
 
     # Create base chart
     base = (
@@ -408,8 +156,9 @@ def plot_timeline_altair(df: pd.DataFrame) -> alt.Chart:
     return chart
 
 
-def plot_heatmap_altair(df: pd.DataFrame) -> alt.Chart:
-    """Create a heatmap of listens by hour and day of week using Altair."""
+@st.cache_data
+def _prepare_heatmap_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Prepare and cache heatmap data."""
     day_labels = {
         0: "Monday",
         1: "Tuesday",
@@ -437,6 +186,24 @@ def plot_heatmap_altair(df: pd.DataFrame) -> alt.Chart:
         categories=list(day_labels.values()),
         ordered=True,
     )
+
+    return pivot
+
+
+def plot_heatmap_altair(df: pd.DataFrame) -> alt.Chart:
+    """Create a heatmap of listens by hour and day of week using Altair."""
+    # Use cached data preparation
+    pivot = _prepare_heatmap_data(df)
+
+    day_labels = {
+        0: "Monday",
+        1: "Tuesday",
+        2: "Wednesday",
+        3: "Thursday",
+        4: "Friday",
+        5: "Saturday",
+        6: "Sunday",
+    }
 
     # Custom pink gradient for heatmap
     pink_gradient = ["#FFF5F8", "#FFDEE9", "#F8BBD0", "#F48FB1", "#F06292", "#E91E63", "#AD1457"]
@@ -469,3 +236,198 @@ def plot_heatmap_altair(df: pd.DataFrame) -> alt.Chart:
     )
 
     return chart
+
+
+# ============================================================================
+# NEW VISUALIZATIONS FOR MULTI-TAB DASHBOARD
+# ============================================================================
+
+
+def _truncate_text(text: str, max_length: int = 40) -> str:
+    """Truncate text to max_length and add ellipsis if needed."""
+    if len(text) <= max_length:
+        return text
+    return text[:max_length - 3] + "..."
+
+
+@st.cache_data
+def _prepare_top_songs_data(df: pd.DataFrame, num_songs: int = 10) -> pd.DataFrame:
+    """Prepare and cache top songs data."""
+    song_counts = (
+        df.groupby(["title", "artist"])
+        .size()
+        .reset_index(name="count")
+        .sort_values("count", ascending=False)
+        .head(num_songs)
+    )
+
+    song_counts["title_truncated"] = song_counts["title"].apply(lambda x: _truncate_text(x, 20))
+    song_counts["artist_truncated"] = song_counts["artist"].apply(lambda x: _truncate_text(x, 25))
+    song_counts["song_label"] = song_counts["title_truncated"] + " — " + song_counts["artist_truncated"]
+
+    total_listens = df.shape[0]
+    song_counts["percent"] = (song_counts["count"] / total_listens * 100).round(1)
+
+    return song_counts
+
+
+def plot_top_songs_altair(df: pd.DataFrame, num_songs: int = 10) -> alt.Chart:
+    """
+    Create a horizontal bar chart of most played songs using Altair.
+
+    Args:
+        df: DataFrame with listening data (must have title, artist columns)
+        num_songs: Number of top songs to display
+
+    Returns:
+        Altair chart with horizontal bar chart
+    """
+    # Use cached data preparation
+    song_counts = _prepare_top_songs_data(df, num_songs)
+
+    chart = (
+        alt.Chart(song_counts)
+        .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6, height=30)
+        .encode(
+            y=alt.Y(
+                "song_label:N",
+                title="Song",
+                sort="-x",  # Sort by count descending
+                axis=alt.Axis(labelLimit=400),
+            ),
+            x=alt.X("count:Q", title="Number of Listens"),
+            color=alt.Color(
+                "count:Q",
+                scale=alt.Scale(
+                    scheme="reds",
+                    range=["#F8BBD0", "#F48FB1", "#F06292", "#E91E63", "#C2185B"]
+                ),
+                legend=alt.Legend(title="Listens", orient="bottom"),
+            ),
+            tooltip=[
+                alt.Tooltip("title:N", title="Song"),
+                alt.Tooltip("artist:N", title="Artist"),
+                alt.Tooltip("count:Q", title="Listens", format=","),
+                alt.Tooltip("percent:Q", title="% of Total", format=".1f"),
+            ],
+        )
+        .properties(width="container", height=max(400, 50 + num_songs * 35))
+        .configure_view(strokeWidth=0)
+    )
+
+    return chart
+
+
+@st.cache_data
+def _prepare_top_artists_data(df: pd.DataFrame, num_artists: int = 10) -> pd.DataFrame:
+    """Prepare and cache top artists data."""
+    artist_counts = (
+        df.groupby("artist")
+        .size()
+        .reset_index(name="count")
+        .sort_values("count", ascending=False)
+        .head(num_artists)
+    )
+
+    artist_counts["artist_truncated"] = artist_counts["artist"].apply(lambda x: _truncate_text(x, 40))
+
+    total_listens = df.shape[0]
+    artist_counts["percent"] = (artist_counts["count"] / total_listens * 100).round(1)
+
+    return artist_counts
+
+
+def plot_top_artists_detail_altair(
+    df: pd.DataFrame,
+    num_artists: int = 10,
+) -> alt.Chart:
+    """
+    Create an enhanced horizontal bar chart of top artists using Altair.
+    More intuitive than donut chart for comparisons.
+
+    Args:
+        df: DataFrame with listening data
+        num_artists: Number of top artists to display
+
+    Returns:
+        Altair chart with horizontal bar chart showing artist and listen count
+    """
+    # Use cached data preparation
+    artist_counts = _prepare_top_artists_data(df, num_artists)
+
+    chart = (
+        alt.Chart(artist_counts)
+        .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6, height=28)
+        .encode(
+            y=alt.Y(
+                "artist_truncated:N",
+                title="Artist",
+                sort="-x",  # Sort by count descending
+                axis=alt.Axis(labelLimit=300),
+            ),
+            x=alt.X("count:Q", title="Number of Listens"),
+            color=alt.Color(
+                "count:Q",
+                scale=alt.Scale(
+                    scheme="purples",
+                    range=["#E1BEE7", "#CE93D8", "#AB47BC", "#9C27B0", "#7B1FA2"]
+                ),
+                legend=alt.Legend(title="Listens", orient="bottom"),
+            ),
+            tooltip=[
+                alt.Tooltip("artist:N", title="Artist"),
+                alt.Tooltip("count:Q", title="Listens", format=","),
+                alt.Tooltip("percent:Q", title="% of Total", format=".1f"),
+            ],
+        )
+        .properties(width="container", height=max(400, 50 + num_artists * 30))
+        .configure_view(strokeWidth=0)
+    )
+
+    return chart
+
+
+def calculate_diversity_score(df: pd.DataFrame) -> dict:
+    """
+    Calculate Artist Diversity Score using Simpson's Diversity Index.
+
+    Measures the variety of artists in your listening history.
+    - Higher score (closer to 1) = More diverse listening across many artists
+    - Lower score (closer to 0) = More focused on fewer artists
+
+    Args:
+        df: DataFrame with listening data
+
+    Returns:
+        Dictionary with diversity score and interpretation
+    """
+    # Get artist listen counts
+    artist_counts = df["artist"].value_counts()
+    total_listens = len(df)
+
+    # Simpson's Diversity Index: D = 1 - sum(p_i^2)
+    # where p_i is the proportion of listens to artist i
+    proportions = artist_counts / total_listens
+    simpson_index = 1 - (proportions ** 2).sum()
+
+    # Determine interpretation
+    if simpson_index >= 0.8:
+        interpretation = "Very Diverse"
+        description = "You explore a wide variety of artists!"
+    elif simpson_index >= 0.6:
+        interpretation = "Diverse"
+        description = "You have a good mix of favorite and new artists."
+    elif simpson_index >= 0.4:
+        interpretation = "Moderate"
+        description = "You tend to focus on certain artists but explore others."
+    else:
+        interpretation = "Focused"
+        description = "You strongly prefer your favorite artists."
+
+    return {
+        "score": float(round(simpson_index, 3)),
+        "interpretation": interpretation,
+        "description": description,
+        "unique_artists": int(len(artist_counts)),
+        "top_artist_pct": float(round((artist_counts.iloc[0] / total_listens) * 100, 1)),
+    }

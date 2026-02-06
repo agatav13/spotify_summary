@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+Pro:wght@300;400;600&display=swap');
+
+* {
+    font-family: 'Source Sans Pro', -apple-system, sans-serif;
+}
+
+.main {
+    background-color: #f7f6f3;
+}
+
+.main-header {
+    font-family: 'Playfair Display', serif;
+    font-size: 3rem;
+    font-weight: 600;
+    color: #2d3436;
+    text-align: center;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.01em;
+}
+
+.subtitle {
+    font-family: 'Source Sans Pro', sans-serif;
+    text-align: center;
+    color: #b76e79;
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin-bottom: 2rem;
+    letter-spacing: 0.05em;
+}
+
+h1 {
+    font-family: 'Playfair Display', serif !important;
+    font-size: 3rem !important;
+    font-weight: 600 !important;
+    color: #2d3436 !important;
+}
+
+.metric-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(183, 110, 121, 0.06);
+    border: 1px solid #e8e6e1;
+    transition: all 0.2s ease;
+}
+
+.metric-card:hover {
+    box-shadow: 0 4px 16px rgba(183, 110, 121, 0.12);
+}
+
+.metric-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.25rem;
+    font-weight: 600;
+    color: #b76e79;
+    letter-spacing: -0.02em;
+}
+
+.metric-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #636e72;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 0.5rem;
+}
+
+.section-header {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    font-weight: 500;
+    color: #2d3436;
+    margin-top: 1.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #b76e79;
+    display: inline-block;
+}
+
+.block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    padding-left: 8% !important;
+    padding-right: 8% !important;
+    max-width: 1400px !important;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #e0ddd5;
+    margin: 2rem 0;
+}
+
+[data-testid="stSidebar"] {
+    background: white !important;
+    border-right: 1px solid #e8e6e1;
+}
+
+[data-testid="stSidebar"] > div:first-child {
+    background: transparent;
+}
+
+h3 {
+    color: #2d3436 !important;
+    font-family: 'Playfair Display', serif !important;
+    font-weight: 500 !important;
+}
+
+[data-testid="stSidebarCollapseButton"] {
+    display: none;
+}
+
+/* Tab styling to match Sage Rose theme */
+.stTabs {
+    margin-top: 2rem;
+}
+
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0.75rem;
+    background: transparent;
+    justify-content: center;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background: #e8e6e1;
+    color: #2d3436;
+    border-radius: 8px;
+    padding: 0.75rem 2.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    flex: 1;
+    max-width: 200px;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background: #d3cfc7;
+}
+
+.stTabs [aria-selected="true"] {
+    background: #b76e79 !important;
+    color: white !important;
+    border-color: #a6606b !important;
+}
+
+/* Time period radio styling (keep clean/default) */
+[data-testid="stSidebar"] > div:nth-child(4) [role="radiogroup"] {
+    gap: 0.5rem;
+}
+
+[data-testid="stSidebar"] > div:nth-child(4) [role="radiogroup"] label {
+    background: transparent;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+[data-testid="stSidebar"] > div:nth-child(4) [role="radiogroup"] label:hover {
+    background: #f7f6f3;
+}
