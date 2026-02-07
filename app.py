@@ -143,17 +143,17 @@ _load_css()
 # SIDEBAR
 # ============================================================================
 
-# Initialize session state for refresh tracking
-if "data_refreshed" not in st.session_state:
-    st.session_state.data_refreshed = False
-
 # Refresh button
 if st.sidebar.button("🔄 Refresh Data"):
+    # Clear the cached data so load_data() will fetch fresh data
+    load_data.clear()
     with st.sidebar:
         with st.spinner("Fetching fresh data from Google Sheets..."):
-            load_data(force_refresh=True)
-        st.success("Data refreshed successfully!")
-        st.session_state.data_refreshed = True
+            df_new = load_data(force_refresh=True)
+        if df_new is not None:
+            st.success("Data refreshed successfully!")
+        else:
+            st.error("Failed to refresh data.")
 
 # Data info
 data_path = Path(__file__).parent / "data" / "processed_data.csv"
