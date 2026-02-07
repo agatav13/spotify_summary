@@ -1,7 +1,9 @@
 """Patterns tab view for Spotify dashboard."""
-import streamlit as st
 import pandas as pd
+import streamlit as st
+
 from dashboard import visualizations
+from dashboard.components import render_empty_state, render_section_header
 
 
 def render_patterns_tab(df: pd.DataFrame) -> None:
@@ -11,15 +13,19 @@ def render_patterns_tab(df: pd.DataFrame) -> None:
     Args:
         df: Filtered DataFrame with listening data
     """
+    if len(df) == 0:
+        render_empty_state()
+        return
+
     # Day of Week
-    st.markdown('<p class="section-header">Distribution by Day of Week</p>', unsafe_allow_html=True)
+    render_section_header("Distribution by Day of Week")
     chart = visualizations.plot_listens_by_day_altair(df)
     st.altair_chart(chart, width="stretch")
 
     st.markdown("---")
 
     # Time Patterns
-    st.markdown('<p class="section-header">Time Patterns</p>', unsafe_allow_html=True)
+    render_section_header("Time Patterns")
 
     col1, col2 = st.columns(2)
 
@@ -36,6 +42,6 @@ def render_patterns_tab(df: pd.DataFrame) -> None:
     st.markdown("---")
 
     # Listening Timeline
-    st.markdown('<p class="section-header">Listening Timeline</p>', unsafe_allow_html=True)
+    render_section_header("Listening Timeline")
     chart = visualizations.plot_timeline_altair(df)
     st.altair_chart(chart, width="stretch")

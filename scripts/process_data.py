@@ -1,15 +1,15 @@
 """Process raw Spotify data into a clean format."""
 import os
 import sys
-import pandas as pd
 from datetime import datetime
 from pathlib import Path
+
+import pandas as pd
 from progress.bar import Bar
-from typing import Literal
 
 # Add parent directory to path to import from dashboard
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from dashboard.utils import get_time_of_day, TimeOfDay
+from dashboard.utils import get_time_of_day
 
 
 def process_data(data_path: str | Path) -> None:

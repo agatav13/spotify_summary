@@ -1,7 +1,8 @@
 """Overview tab view for Spotify dashboard."""
-import streamlit as st
 import pandas as pd
-from dashboard import visualizations
+import streamlit as st
+
+from dashboard.components import render_empty_state
 from dashboard.themes import COLORS
 
 
@@ -13,7 +14,7 @@ def render_overview_tab(df: pd.DataFrame) -> None:
         df: Filtered DataFrame with listening data
     """
     if len(df) == 0:
-        st.info("No data available for the selected time period.")
+        render_empty_state()
         return
 
     # Calculate overview stats
@@ -41,32 +42,40 @@ def render_overview_tab(df: pd.DataFrame) -> None:
 
     with col1:
         st.markdown('<p class="section-header">Top Artist</p>', unsafe_allow_html=True)
-        st.markdown(f"""
+        st.markdown(
+            f"""
             <div style="text-align: center; padding: 2rem;">
-                <div style="font-size: 2rem; font-weight: 600; color: #b76e79; margin-bottom: 0.5rem;">
+                <div style="font-size: 2rem; font-weight: 600; color: {COLORS['sage_rose']};
+                           margin-bottom: 0.5rem;">
                     {top_artist}
                 </div>
-                <div style="font-size: 1.1rem; color: #636e72;">
+                <div style="font-size: 1.1rem; color: {COLORS['grey_medium']};">
                     {top_artist_count:,} listens
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
 
     with col2:
         st.markdown('<p class="section-header">Top Song</p>', unsafe_allow_html=True)
-        st.markdown(f"""
+        st.markdown(
+            f"""
             <div style="text-align: center; padding: 2rem;">
-                <div style="font-size: 1.5rem; font-weight: 600; color: #b76e79; margin-bottom: 0.25rem;">
+                <div style="font-size: 1.5rem; font-weight: 600; color: {COLORS['sage_rose']};
+                           margin-bottom: 0.25rem;">
                     {top_song}
                 </div>
-                <div style="font-size: 1rem; color: #636e72; margin-bottom: 0.5rem;">
+                <div style="font-size: 1rem; color: {COLORS['grey_medium']}; margin-bottom: 0.5rem;">
                     {top_song_artist}
                 </div>
-                <div style="font-size: 1.1rem; color: #636e72;">
+                <div style="font-size: 1.1rem; color: {COLORS['grey_medium']};">
                     {top_song_count:,} plays
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
 
@@ -74,26 +83,34 @@ def render_overview_tab(df: pd.DataFrame) -> None:
 
     with col3:
         st.markdown('<p class="section-header">Peak Listening Day</p>', unsafe_allow_html=True)
-        st.markdown(f"""
+        st.markdown(
+            f"""
             <div style="text-align: center; padding: 2rem;">
-                <div style="font-size: 1.8rem; font-weight: 600; color: #b76e79; margin-bottom: 0.5rem;">
+                <div style="font-size: 1.8rem; font-weight: 600; color: {COLORS['sage_rose']};
+                           margin-bottom: 0.5rem;">
                     {peak_day.strftime("%B %d, %Y")}
                 </div>
-                <div style="font-size: 1.1rem; color: #636e72;">
+                <div style="font-size: 1.1rem; color: {COLORS['grey_medium']};">
                     {peak_day_count} listens
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
 
     with col4:
         st.markdown('<p class="section-header">Favorite Time</p>', unsafe_allow_html=True)
-        st.markdown(f"""
+        st.markdown(
+            f"""
             <div style="text-align: center; padding: 2rem;">
-                <div style="font-size: 2rem; font-weight: 600; color: #b76e79; margin-bottom: 0.5rem;">
+                <div style="font-size: 2rem; font-weight: 600; color: {COLORS['sage_rose']};
+                           margin-bottom: 0.5rem;">
                     {favorite_time}
                 </div>
-                <div style="font-size: 1.1rem; color: #636e72;">
+                <div style="font-size: 1.1rem; color: {COLORS['grey_medium']};">
                     {favorite_time_count:,} listens
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )

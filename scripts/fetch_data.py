@@ -1,11 +1,11 @@
 """Fetch data from Google Sheets."""
-from dotenv import load_dotenv
 import os
-import pandas as pd
 from pathlib import Path
-from progress.bar import Bar
 from typing import Literal
 
+import pandas as pd
+from dotenv import load_dotenv
+from progress.bar import Bar
 
 Status = Literal["Fetching", "Reading", "Saving"]
 

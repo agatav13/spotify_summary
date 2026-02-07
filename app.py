@@ -1,20 +1,19 @@
 """Spotify Wrapped - Interactive Streamlit Dashboard with Altair."""
-import re
-import streamlit as st
-import pandas as pd
-import os
-from dotenv import load_dotenv
-from pathlib import Path
 from datetime import datetime, timedelta
-from dashboard import visualizations
+from pathlib import Path
+
+import pandas as pd
+import streamlit as st
+
+from dashboard.components import render_footer, render_metric_card
+from dashboard.config import CACHE
+from dashboard.data_loader import fetch_and_process_data
 from dashboard.tabs import (
-    render_overview_tab,
-    render_songs_tab,
     render_artists_tab,
+    render_overview_tab,
     render_patterns_tab,
+    render_songs_tab,
 )
-from dashboard.themes import COLORS
-from dashboard.utils import get_time_of_day
 
 
 def _load_css() -> None:
@@ -26,10 +25,6 @@ def _load_css() -> None:
     except FileNotFoundError:
         st.warning("CSS file not found. Using default styling.")
 
-# Constants
-CACHE_REFRESH_HOURS: int = 24
-SHEET_ID_PATTERN: re.Pattern = re.compile(r"^[a-zA-Z0-9-_]{10,50}$")
-
 # Configure page first (before any other st calls)
 st.set_page_config(
     page_title="Spotify Wrapped",
@@ -37,108 +32,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# Load .env for local development (ignored on Streamlit Cloud)
-load_dotenv()
-
-
-def _validate_sheet_id(sheet_id: str) -> bool:
-    """
-    Validate Google Sheet ID format to prevent injection attacks.
-
-    Args:
-        sheet_id: The sheet ID to validate
-
-    Returns:
-        True if valid, False otherwise
-    """
-    return bool(SHEET_ID_PATTERN.match(sheet_id.strip()))
-
-
-def fetch_and_process_data(data_path: Path) -> bool:
-    """
-    Fetch data from Google Sheets and process it.
-
-    Args:
-        data_path: Path to the data directory
-
-    Returns:
-        True if successful, False otherwise
-    """
-    # Try st.secrets first (Streamlit Cloud), fallback to .env (local)
-    sheet_ids = None
-    try:
-        sheet_ids = st.secrets.get("SHEET_IDS")
-    except Exception:
-        sheet_ids = os.getenv("SHEET_IDS")
-
-    if not sheet_ids:
-        st.error("SHEET_IDS not found. Add it to .env (local) or Streamlit secrets (cloud).")
-        return False
-
-    sheet_ids = sheet_ids.split(",")
-
-    # Validate sheet IDs
-    for sheet_id in sheet_ids:
-        if not _validate_sheet_id(sheet_id):
-            st.error(f"Invalid sheet ID format: {sheet_id}")
-            return False
-
-    # Fetch raw data with error handling
-    all_data = []
-    for sheet_id in sheet_ids:
-        try:
-            url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-            data = pd.read_csv(url, header=None)
-            all_data.append(data)
-        except Exception as e:
-            st.error(f"Failed to fetch data from sheet {sheet_id}: {e}")
-            return False
-
-    if not all_data:
-        st.error("No data was fetched from Google Sheets.")
-        return False
-
-    try:
-        combined_data = pd.concat(all_data, ignore_index=True)
-        combined_data.to_csv(data_path / "raw_data.csv", index=False, header=False)
-    except Exception as e:
-        st.error(f"Failed to save raw data: {e}")
-        return False
-
-    # Process data with error handling
-    try:
-        raw_data = pd.read_csv(data_path / "raw_data.csv", header=None)
-        raw_data.columns = ["date", "title", "artist", "song_id", "link"]
-
-        # Validate required columns exist
-        required_cols = ["date", "title", "artist", "song_id"]
-        if not all(col in raw_data.columns for col in required_cols):
-            st.error("Data is missing required columns.")
-            return False
-
-        # Parse dates with error handling
-        def parse_date(date_str):
-            try:
-                return datetime.strptime(date_str, "%B %d, %Y at %I:%M%p").strftime("%Y-%m-%d %H:%M")
-            except ValueError:
-                return None
-
-        raw_data["date"] = raw_data["date"].apply(parse_date)
-        # Remove rows with invalid dates
-        raw_data = raw_data[raw_data["date"].notna()]
-        raw_data["date"] = pd.to_datetime(raw_data["date"])
-
-        # Add derived columns
-        raw_data["day_of_week"] = raw_data["date"].dt.day_of_week
-        raw_data["time_of_day"] = raw_data["date"].dt.hour.apply(get_time_of_day)
-
-        raw_data.to_csv(data_path / "processed_data.csv", index=False)
-        return True
-
-    except Exception as e:
-        st.error(f"Failed to process data: {e}")
-        return False
 
 
 @st.cache_data
@@ -166,7 +59,7 @@ def load_data(force_refresh: bool = False) -> pd.DataFrame | None:
     else:
         # Auto-refresh if file is older than configured hours
         file_age = datetime.now() - datetime.fromtimestamp(processed_file.stat().st_mtime)
-        if file_age > timedelta(hours=CACHE_REFRESH_HOURS):
+        if file_age > timedelta(hours=CACHE.refresh_hours):
             should_fetch = True
 
     if should_fetch:
@@ -188,42 +81,59 @@ def load_data(force_refresh: bool = False) -> pd.DataFrame | None:
         return None
 
 
+@st.cache_data
+def filter_data_by_period(
+    df: pd.DataFrame,
+    period: str,
+    start_date: datetime | None | pd.Timestamp = None,
+    end_date: datetime | None | pd.Timestamp = None,
+) -> pd.DataFrame:
+    """
+    Filter data by time period with caching.
+
+    Args:
+        df: Full DataFrame to filter
+        period: Time period filter ("All Data", "This Month", "This Year", "Custom Range")
+        start_date: Start date for custom range
+        end_date: End date for custom range
+
+    Returns:
+        Filtered DataFrame
+    """
+    if period == "All Data":
+        return df
+    elif period == "This Month":
+        today = pd.Timestamp.now()
+        return df[
+            (df["date"].dt.month == today.month) & (df["date"].dt.year == today.year)
+        ]
+    elif period == "This Year":
+        today = pd.Timestamp.now()
+        return df[df["date"].dt.year == today.year]
+    else:  # Custom Range
+        if start_date is None or end_date is None:
+            return df
+        return df[
+            (df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)
+        ]
+
+
 def render_metrics(df: pd.DataFrame) -> None:
     """Render key metrics cards."""
     col1, col2, col3, col4 = st.columns(4, gap="small")
 
     with col1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{len(df):,}</div>
-                <div class="metric-label">Total Listens</div>
-            </div>
-        """, unsafe_allow_html=True)
+        render_metric_card(f"{len(df):,}", "Total Listens")
 
     with col2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{df['artist'].nunique():,}</div>
-                <div class="metric-label">Artists</div>
-            </div>
-        """, unsafe_allow_html=True)
+        render_metric_card(f"{df['artist'].nunique():,}", "Artists")
 
     with col3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{df['song_id'].nunique():,}</div>
-                <div class="metric-label">Songs</div>
-            </div>
-        """, unsafe_allow_html=True)
+        render_metric_card(f"{df['song_id'].nunique():,}", "Songs")
 
     with col4:
         avg_per_day = len(df) / df["date"].dt.date.nunique()
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{avg_per_day:.1f}</div>
-                <div class="metric-label">Per Day</div>
-            </div>
-        """, unsafe_allow_html=True)
+        render_metric_card(f"{avg_per_day:.1f}", "Per Day")
 
 
 # Load custom CSS
@@ -270,33 +180,42 @@ if df is None:
     st.error("Failed to load data. Please check your configuration and try again.")
     st.stop()
 
-if period == "All Data":
-    df_filtered = df
-elif period == "This Month":
-    today = pd.Timestamp.now()
-    df_filtered = df[
-        (df["date"].dt.month == today.month) & (df["date"].dt.year == today.year)
-    ]
-elif period == "This Year":
-    today = pd.Timestamp.now()
-    df_filtered = df[df["date"].dt.year == today.year]
-else:  # Custom Range
+if period == "Custom Range":
     min_date = df["date"].dt.date.min()
     max_date = df["date"].dt.date.max()
-    start_date, end_date = st.sidebar.date_input(
+    date_range = st.sidebar.date_input(
         "Select Date Range",
         value=(min_date, max_date),
         min_value=min_date,
         max_value=max_date,
     )
-    df_filtered = df[
-        (df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date)
-    ]
+    # Handle both tuple and single date return types
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        start_date, end_date = date_range
+    else:
+        start_date = min_date
+        end_date = max_date
+    df_filtered = filter_data_by_period(df, period, start_date, end_date)
+else:
+    df_filtered = filter_data_by_period(df, period)
 
 # Show filtered info
 st.sidebar.markdown(f"**Showing:** {len(df_filtered):,} listens")
 
 st.sidebar.markdown("---")
+
+# Export Data
+st.sidebar.header("Export Data")
+
+# Convert filtered data to CSV for download
+csv = df_filtered.to_csv(index=False).encode("utf-8")
+
+st.sidebar.download_button(
+    label="📥 Download CSV",
+    data=csv,
+    file_name=f"spotify_listens_{datetime.now().strftime('%Y%m%d')}.csv",
+    mime="text/csv",
+)
 
 # ============================================================================
 # SIDEBAR NAVIGATION
@@ -333,8 +252,4 @@ with tab4:
         render_patterns_tab(df_filtered)
 
 # Footer
-st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: #b76e79; font-size: 0.85rem;'>Made with Streamlit</div>",
-    unsafe_allow_html=True,
-)
+render_footer()

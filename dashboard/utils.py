@@ -1,7 +1,6 @@
 """Utility functions for data processing."""
 from typing import Literal
 
-
 TimeOfDay = Literal["Morning", "Afternoon", "Evening", "Night"]
 
 

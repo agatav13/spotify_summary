@@ -36,9 +36,14 @@ git clone https://github.com/agatav13/spotify_summary.git
 cd spotify_summary
 ```
 
-2. Install dependencies:
+2. Install dependencies using [uv](https://github.com/astral-sh/uv) (recommended):
 ```bash
-pip install -r requirements.txt
+uv sync
+```
+
+Or using pip:
+```bash
+pip install -e .
 ```
 
 3. Configure environment variables:
@@ -58,9 +63,23 @@ streamlit run app.py
 spotify_wrapped/
 ├── app.py                 # Main Streamlit application
 ├── main.py               # Data fetching script
+├── pyproject.toml        # Project configuration with uv
 ├── dashboard/
-│   ├── visualizations.py # Altair chart functions
-│   └── themes.py         # Color scheme and styling
+│   ├── __init__.py
+│   ├── components.py     # Reusable UI components
+│   ├── config.py         # Configuration constants
+│   ├── data_loader.py    # Data fetching and processing
+│   ├── errors.py         # Custom exceptions
+│   ├── static/
+│   │   └── style.css     # Custom CSS styling
+│   ├── tabs/             # Tab render functions
+│   │   ├── overview.py
+│   │   ├── artists.py
+│   │   ├── songs.py
+│   │   └── patterns.py
+│   ├── themes.py         # Color scheme and styling
+│   ├── utils.py          # Utility functions
+│   └── visualizations.py # Altair chart functions
 ├── scripts/
 │   ├── fetch_data.py     # Google Sheets fetching
 │   └── process_data.py   # Data processing utilities

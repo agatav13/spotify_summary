@@ -1,9 +1,7 @@
-"""Theme and color palette for Spotify dashboard - Altair version."""
-import altair as alt
-
-
+"""Theme and color palette for Spotify dashboard."""
 COLORS = {
     "primary": "#E91E63",      # Pink (main accent)
+    "sage_rose": "#b76e79",    # Sage Rose (brand color)
     "secondary": "#F48FB1",    # Light Pink
     "accent": "#CE93D8",       # Purple accent
     "teal": "#26A69A",         # Teal (professional)
@@ -11,6 +9,7 @@ COLORS = {
     "coral": "#FF7043",        # Coral (warmth)
     "grey_light": "#F5F5F5",   # Light grey background
     "grey_dark": "#424242",    # Dark grey text
+    "grey_medium": "#636e72",  # Medium grey text
     "white": "#FFFFFF",
 }
 
@@ -64,19 +63,3 @@ def get_chart_config() -> dict:
 
 
 PASTEL_PALETTE = ["#F8BBD0", "#F48FB1", "#CE93D8", "#B39DDB", "#9FA8DA", "#90CAF9"]
-
-
-def get_custom_layout() -> dict:
-    """Get custom Plotly layout for backwards compatibility."""
-    return {
-        "paper_bgcolor": "#FFFFFF",
-        "plot_bgcolor": "#FFFFFF",
-        "font": {"color": "#424242", "family": "sans-serif"},
-        "margin": dict(l=20, r=20, t=40, b=20),
-        "title": {"x": 0.5, "xanchor": "center"},
-    }
-
-
-def get_color_sequence(n: int) -> list:
-    """Get a color sequence of length n from PASTEL_PALETTE."""
-    return [PASTEL_PALETTE[i % len(PASTEL_PALETTE)] for i in range(n)]

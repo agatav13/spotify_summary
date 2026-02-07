@@ -1,17 +1,29 @@
 """Visualization functions for Spotify listening data."""
-import streamlit as st
-import pandas as pd
+
+from typing import TypedDict
+
 import altair as alt
-from datetime import date
+import pandas as pd
+import streamlit as st
+
 from dashboard.themes import (
     COLORS,
-    PINK_SCHEME,
     DAY_COLORS,
     TIME_COLORS,
 )
 
 
-def plot_listens_by_day_altair(df: pd.DataFrame) -> alt.Chart:
+class DiversityScore(TypedDict):
+    """Type definition for diversity score calculation result."""
+
+    score: float
+    interpretation: str
+    description: str
+    unique_artists: int
+    top_artist_pct: float
+
+
+def plot_listens_by_day_altair(df: pd.DataFrame) -> alt.Chart:  # type: ignore[name-defined]
     """Create a bar chart of listens by day of week using Altair."""
     day_labels = {
         0: "Monday",
@@ -63,7 +75,7 @@ def plot_listens_by_day_altair(df: pd.DataFrame) -> alt.Chart:
         .properties(width="container", height=400)
     )
 
-    return chart
+    return chart  # type: ignore[no-any-return]
 
 
 def plot_listens_by_time_altair(df: pd.DataFrame) -> alt.Chart:
@@ -103,10 +115,10 @@ def plot_listens_by_time_altair(df: pd.DataFrame) -> alt.Chart:
         .properties(width="container", height=400)
     )
 
-    return chart
+    return chart  # type: ignore[no-any-return]
 
 
-@st.cache_data
+@st.cache_data(max_entries=10, ttl=3600)
 def _prepare_timeline_data(df: pd.DataFrame) -> pd.DataFrame:
     """Prepare and cache timeline data."""
     df_plot = df.copy()
@@ -153,10 +165,10 @@ def plot_timeline_altair(df: pd.DataFrame) -> alt.Chart:
         .configure_view(strokeWidth=0)
     )
 
-    return chart
+    return chart  # type: ignore[no-any-return]
 
 
-@st.cache_data
+@st.cache_data(max_entries=10, ttl=3600)
 def _prepare_heatmap_data(df: pd.DataFrame) -> pd.DataFrame:
     """Prepare and cache heatmap data."""
     day_labels = {
@@ -235,7 +247,7 @@ def plot_heatmap_altair(df: pd.DataFrame) -> alt.Chart:
         .properties(width="container", height=450)
     )
 
-    return chart
+    return chart  # type: ignore[no-any-return]
 
 
 # ============================================================================
@@ -250,7 +262,7 @@ def _truncate_text(text: str, max_length: int = 40) -> str:
     return text[:max_length - 3] + "..."
 
 
-@st.cache_data
+@st.cache_data(max_entries=10, ttl=3600)
 def _prepare_top_songs_data(df: pd.DataFrame, num_songs: int = 10) -> pd.DataFrame:
     """Prepare and cache top songs data."""
     song_counts = (
@@ -262,8 +274,12 @@ def _prepare_top_songs_data(df: pd.DataFrame, num_songs: int = 10) -> pd.DataFra
     )
 
     song_counts["title_truncated"] = song_counts["title"].apply(lambda x: _truncate_text(x, 20))
-    song_counts["artist_truncated"] = song_counts["artist"].apply(lambda x: _truncate_text(x, 25))
-    song_counts["song_label"] = song_counts["title_truncated"] + " — " + song_counts["artist_truncated"]
+    song_counts["artist_truncated"] = song_counts["artist"].apply(
+        lambda x: _truncate_text(x, 25)
+    )
+    song_counts["song_label"] = (
+        song_counts["title_truncated"] + " — " + song_counts["artist_truncated"]
+    )
 
     total_listens = df.shape[0]
     song_counts["percent"] = (song_counts["count"] / total_listens * 100).round(1)
@@ -315,10 +331,10 @@ def plot_top_songs_altair(df: pd.DataFrame, num_songs: int = 10) -> alt.Chart:
         .configure_view(strokeWidth=0)
     )
 
-    return chart
+    return chart  # type: ignore[no-any-return]
 
 
-@st.cache_data
+@st.cache_data(max_entries=10, ttl=3600)
 def _prepare_top_artists_data(df: pd.DataFrame, num_artists: int = 10) -> pd.DataFrame:
     """Prepare and cache top artists data."""
     artist_counts = (
@@ -329,7 +345,9 @@ def _prepare_top_artists_data(df: pd.DataFrame, num_artists: int = 10) -> pd.Dat
         .head(num_artists)
     )
 
-    artist_counts["artist_truncated"] = artist_counts["artist"].apply(lambda x: _truncate_text(x, 40))
+    artist_counts["artist_truncated"] = artist_counts["artist"].apply(
+        lambda x: _truncate_text(x, 40)
+    )
 
     total_listens = df.shape[0]
     artist_counts["percent"] = (artist_counts["count"] / total_listens * 100).round(1)
@@ -384,10 +402,10 @@ def plot_top_artists_detail_altair(
         .configure_view(strokeWidth=0)
     )
 
-    return chart
+    return chart  # type: ignore[no-any-return]
 
 
-def calculate_diversity_score(df: pd.DataFrame) -> dict:
+def calculate_diversity_score(df: pd.DataFrame) -> DiversityScore:
     """
     Calculate Artist Diversity Score using Simpson's Diversity Index.
 
