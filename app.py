@@ -109,7 +109,7 @@ def fetch_and_process_data(data_path: Path) -> bool:
     # Process data with error handling
     try:
         raw_data = pd.read_csv(data_path / "raw_data.csv", header=None)
-        raw_data.columns = ["date", "title", "artist", "song_id"]
+        raw_data.columns = ["date", "title", "artist", "song_id", "link"]
 
         # Validate required columns exist
         required_cols = ["date", "title", "artist", "song_id"]

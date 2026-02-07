@@ -24,7 +24,7 @@ def process_data(data_path: str | Path) -> None:
         bar.next()
 
         # Change the column names
-        raw_data.columns = ["date", "title", "artist", "song_id"]
+        raw_data.columns = ["date", "title", "artist", "song_id", "link"]
         bar.next()
 
         # Change the date format from "December 8, 2024 at 07:02PM" to "2024-12-08 19:02"
