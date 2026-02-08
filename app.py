@@ -202,21 +202,6 @@ else:
 # Show filtered info
 st.sidebar.markdown(f"**Showing:** {len(df_filtered):,} listens")
 
-st.sidebar.markdown("---")
-
-# Export Data
-st.sidebar.header("Export Data")
-
-# Convert filtered data to CSV for download
-csv = df_filtered.to_csv(index=False).encode("utf-8")
-
-st.sidebar.download_button(
-    label="📥 Download CSV",
-    data=csv,
-    file_name=f"spotify_listens_{datetime.now().strftime('%Y%m%d')}.csv",
-    mime="text/csv",
-)
-
 # ============================================================================
 # SIDEBAR NAVIGATION
 # ============================================================================

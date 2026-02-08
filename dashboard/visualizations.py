@@ -1,7 +1,5 @@
 """Visualization functions for Spotify listening data."""
 
-from typing import TypedDict
-
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -11,16 +9,6 @@ from dashboard.themes import (
     DAY_COLORS,
     TIME_COLORS,
 )
-
-
-class DiversityScore(TypedDict):
-    """Type definition for diversity score calculation result."""
-
-    score: float
-    interpretation: str
-    description: str
-    unique_artists: int
-    top_artist_pct: float
 
 
 def plot_listens_by_day_altair(df: pd.DataFrame) -> alt.Chart:  # type: ignore[name-defined]
@@ -403,49 +391,3 @@ def plot_top_artists_detail_altair(
     )
 
     return chart  # type: ignore[no-any-return]
-
-
-def calculate_diversity_score(df: pd.DataFrame) -> DiversityScore:
-    """
-    Calculate Artist Diversity Score using Simpson's Diversity Index.
-
-    Measures the variety of artists in your listening history.
-    - Higher score (closer to 1) = More diverse listening across many artists
-    - Lower score (closer to 0) = More focused on fewer artists
-
-    Args:
-        df: DataFrame with listening data
-
-    Returns:
-        Dictionary with diversity score and interpretation
-    """
-    # Get artist listen counts
-    artist_counts = df["artist"].value_counts()
-    total_listens = len(df)
-
-    # Simpson's Diversity Index: D = 1 - sum(p_i^2)
-    # where p_i is the proportion of listens to artist i
-    proportions = artist_counts / total_listens
-    simpson_index = 1 - (proportions ** 2).sum()
-
-    # Determine interpretation
-    if simpson_index >= 0.8:
-        interpretation = "Very Diverse"
-        description = "You explore a wide variety of artists!"
-    elif simpson_index >= 0.6:
-        interpretation = "Diverse"
-        description = "You have a good mix of favorite and new artists."
-    elif simpson_index >= 0.4:
-        interpretation = "Moderate"
-        description = "You tend to focus on certain artists but explore others."
-    else:
-        interpretation = "Focused"
-        description = "You strongly prefer your favorite artists."
-
-    return {
-        "score": float(round(simpson_index, 3)),
-        "interpretation": interpretation,
-        "description": description,
-        "unique_artists": int(len(artist_counts)),
-        "top_artist_pct": float(round((artist_counts.iloc[0] / total_listens) * 100, 1)),
-    }

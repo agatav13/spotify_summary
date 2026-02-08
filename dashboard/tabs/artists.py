@@ -23,26 +23,3 @@ def render_artists_tab(df: pd.DataFrame) -> None:
 
     chart = visualizations.plot_top_artists_detail_altair(df, num_artists=CHART.default_num_artists)
     st.altair_chart(chart, width="stretch")
-
-    st.markdown("---")
-
-    # Artist Diversity Score
-    render_section_header("Artist Diversity")
-
-    diversity = visualizations.calculate_diversity_score(df)
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        render_metric_card(f"{diversity['score']:.3f}", "Diversity Score")
-
-    with col2:
-        render_metric_card(diversity['interpretation'], "Variety")
-
-    with col3:
-        render_metric_card(f"{diversity['top_artist_pct']}%", "Top Artist")
-
-    st.caption(
-        f"💡 {diversity['description']} "
-        f"You listened to {diversity['unique_artists']:,} unique artists."
-    )
